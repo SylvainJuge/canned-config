@@ -1,0 +1,15 @@
+#!/bin/bash
+
+INSTANCE_PATH="####"
+
+[ -d "$INSTANCE_PATH" ] && echo "setup error : empty instance path" && exit 1
+case $0 in
+   start )
+      "$INSTANCE_PATH/bin/startup.sh"
+      ;;
+   stop )
+      "$INSTANCE_PATH/bin/shutdown.sh"
+      ;;
+   * ) echo "expected command : start|stop"
+      ;;
+esac
