@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# this script just downloads and unpack a tomcat release
+# and overrides its config with a canned-config
+
+# parameter : tomcat version, defaults to 6.0.37
+
+mirror="http://mirrors.ircam.fr/pub/apache/tomcat/"
+version="${1:-6.0.37}"
+majorVersion="${version%%.*}"
+
+archive="apache-tomcat-${version}.zip"
+url="$mirror/tomcat-${majorVersion}/v$version/bin/$archive"
+
+[ -e "/tmp/$archive" ] || wget -q "$url" -O "/tmp/$archive"
+
+# TODO : download and check archive signature
+# bypass archive download if file exists and signature is ok
+
+cwd="$(dirname $0)"
+unzip -q "/tmp/$archive" -d "$cwd"
+rm -rf "$cwd/tomcat"
+mv "$cwd/${archive%.zip}" "$cwd/tomcat"
+
+cp -rf "$cwd/../../tomcat${majorVersion}/conf" "$cwd/tomcat"
