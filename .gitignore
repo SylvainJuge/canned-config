@@ -1,2 +1,3 @@
 # tomcat template folder
 /tomcat-instances/_template/tomcat
+tomcat-instances/tomcat-*

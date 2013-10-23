@@ -1,0 +1,52 @@
+#!/bin/bash
+
+findFreePort (){
+   port=${1:-1}
+   free=0
+   while [ 0 -eq $free ]; do
+      nc -z localhost $port && free=0 || free=1
+      port=$(($port+1))
+   done
+   echo $port
+}
+
+name="${1:-instance}"
+pushd "$(dirname $0)" > /dev/null
+
+# -- Step 1 : copy instance from template
+
+[ ! -e "$name" ] \
+   || echo "instance $name already exists" || return 1
+
+[ -e _template/tomcat ] \
+   || echo "template not found, please run _template/create first" ||  return 1
+
+instance="tomcat-${name}"
+rm -rf "$instance"
+cp -r _template/tomcat "$instance"
+
+# -- Step 2 : configure instance --
+
+# find open port(s)
+httpPort=$(findFreePort 8080)
+stopPort=$(findFreePort 8005)
+
+echo "$httpPort $stopPort"
+
+# reconfigure instance ports
+sed \
+   -e "s/port=\"8005\"/port=\"$stopPort\"/g" \
+   -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
+   -i "$instance/conf/server.xml"
+
+echo "still wip " && exit 1
+
+# TODO configure automatic startup
+# TODO : add link into /etc/init.d/
+
+which update-rc.d && update-rc.d "$instance" defaults
+
+# TODO add reverse proxy rule
+
+# 
+popd > /dev/null
