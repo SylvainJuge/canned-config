@@ -21,11 +21,12 @@ pushd "$(dirname $0)" > /dev/null
    || echo "instance $name already exists" || return 1
 
 [ -e _template/tomcat ] \
-   || echo "template not found, please run _template/create first" ||  return 1
+   || echo "template not found, please run _template/create first" || return 1
 
 instance="tomcat-${name}"
 rm -rf "$instance"
 cp -r _template/tomcat "$instance"
+chmod u+x "$instance"/**/*.sh
 
 # -- Step 2 : configure instance --
 
