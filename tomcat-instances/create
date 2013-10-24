@@ -52,7 +52,7 @@ echo "instance ports : stop=$stopPort http=$httpPort"
 sed \
    -e "s/port=\"8005\"/port=\"$stopPort\"/g" \
    -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
-   -i "$instance/conf/server.xml"
+   -i "$folder/conf/server.xml"
 
 # TODO : make it safe gracefuly when java is not available
 # TODO : make it work with a jre as fallback
