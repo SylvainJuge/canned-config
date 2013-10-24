@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# TODO : must be root to execute
+[[ 0 -ne $EUID ]] && echo "root access required" && exit 1
 
 findFreePort (){
    port=${1:-1}
