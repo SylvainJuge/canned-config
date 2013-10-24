@@ -12,23 +12,30 @@ findFreePort (){
    echo $port
 }
 
-name="${1:-instance}"
+cwd=$(dirname $0)
+
+# parameters
+name="${1:-instance}"     # instance name
+instanceRoot="${2:-$cwd}" # where to create instance
+
+instance="tomcat-$name"          # instance folder name
+folder="$instanceRoot/$instance" # instance folder path
+
 pushd "$(dirname $0)" > /dev/null
 
 # -- Step 1 : copy instance from template
 
-[ ! -e "$name" ] \
-   || echo "instance $name already exists" || return 1
+[ ! -e "$folder" ] \
+   || echo "target folder already exists : $folder" || return 1
 
 [ -e _template/tomcat ] \
    || echo "template not found, please run _template/create first" || return 1
 
-instance="tomcat-${name}"
-rm -rf "$instance"
-cp -r _template/tomcat "$instance"
-chmod ugo+x "$instance"/**/*.sh
+rm -rf "$folder"
+cp -r _template/tomcat "$folder"
+chmod ugo+x "$folder"/**/*.sh
 
-echo "instance path : $(pwd)/$instance"
+echo "instance path : $folder"
 
 # -- Step 2 : configure instance --
 
@@ -47,7 +54,7 @@ sed \
 # add start script into /etc/init.d/
 startupScript="/etc/init.d/${instance}"
 cat ./service | sed \
-   -e 's+#INSTANCE_PATH#+'$(pwd)/$instance'+' \
+   -e 's+#INSTANCE_PATH#+'$folder'+' \
    -e 's+#INSTANCE_NAME#+'$instance'+' \
    > $startupScript
 chmod ugo+x $startupScript
