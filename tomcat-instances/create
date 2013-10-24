@@ -26,7 +26,9 @@ pushd "$(dirname $0)" > /dev/null
 instance="tomcat-${name}"
 rm -rf "$instance"
 cp -r _template/tomcat "$instance"
-chmod u+x "$instance"/**/*.sh
+chmod ugo+x "$instance"/**/*.sh
+
+echo "instance path : $(pwd)/$instance"
 
 # -- Step 2 : configure instance --
 
@@ -34,7 +36,7 @@ chmod u+x "$instance"/**/*.sh
 httpPort=$(findFreePort 8080)
 stopPort=$(findFreePort 8005)
 
-echo "$httpPort $stopPort"
+echo "instance ports : stop=$stopPort http=$httpPort"
 
 # reconfigure instance ports
 sed \
@@ -44,12 +46,17 @@ sed \
 
 # add start script into /etc/init.d/
 startupScript="/etc/init.d/${instance}"
-cat ./service | sed 's+####+'$(pwd)/$instance'+' > $startupScript
-chmod u+x $startupScript
+cat ./service | sed \
+   -e 's+#INSTANCE_PATH#+'$(pwd)/$instance'+' \
+   -e 's+#INSTANCE_NAME#+'$instance'+' \
+   > $startupScript
+chmod ugo+x $startupScript
 
 # configure automatic startup
 update-rc.d -f "$instance" remove >/dev/null
 update-rc.d "$instance" defaults >/dev/null
+
+echo "service & startup config added : $startupScript"
 
 # TODO add reverse proxy rule
 

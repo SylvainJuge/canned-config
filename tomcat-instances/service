@@ -1,8 +1,21 @@
 #!/bin/bash
+### BEGIN INIT INFO
+# Provides:          #INSTANCE_NAME#
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start #INSTANCE_NAME#
+# Description:       Start tomcat instance #INSTANCE_NAME#
+### END INIT INFO
 
-INSTANCE_PATH="####"
+set -e
 
-[ -d "$INSTANCE_PATH" ] && echo "setup error : empty instance path" && exit 1
+[[ 0 -ne $EUID ]] && echo "requires root access" && exit 1
+
+INSTANCE_PATH="#INSTANCE_PATH#"
+
+[ -d "$INSTANCE_PATH" ] && echo "setup error : missing or not-accessible instance path" && exit 1
 case $0 in
    start )
       "$INSTANCE_PATH/bin/startup.sh"
