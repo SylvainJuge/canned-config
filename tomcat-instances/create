@@ -2,6 +2,9 @@
 
 [[ 0 -ne $EUID ]] && echo "root access required" && exit 1
 
+# TODO : search into existing instances ports (not only available, since they may not be started
+
+
 findFreePort (){
    port=${1:-1}
    free=0
@@ -51,11 +54,22 @@ sed \
    -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
    -i "$instance/conf/server.xml"
 
+# TODO : make it safe gracefuly when java is not available
+# TODO : make it work with a jre as fallback
+defaultJava=$(readlink -e $(which javac))
+defaultJava="${defaultJava%/bin/javac}"
+javaHome="${JAVA_HOME:-$defaultJava}"
+
+echo "java home : $javaHome"
+
+# TODO : stop existing instance (if any)
+
 # add start script into /etc/init.d/
 startupScript="/etc/init.d/${instance}"
 cat ./service | sed \
    -e 's+#INSTANCE_PATH#+'$folder'+' \
    -e 's+#INSTANCE_NAME#+'$instance'+' \
+   -e 's+#JAVA_HOME#+'$javaHome'+' \
    > $startupScript
 chmod ugo+x $startupScript
 
