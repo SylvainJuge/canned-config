@@ -16,8 +16,7 @@ set -e
 INSTANCE_PATH="#INSTANCE_PATH#"
 export JAVA_HOME="#JAVA_HOME#"
 
-[ -d "$INSTANCE_PATH" ] && echo "setup error : missing or not-accessible instance path" && exit 1
-case $0 in
+case $1 in
    start )
       "$INSTANCE_PATH/bin/startup.sh"
       ;;
