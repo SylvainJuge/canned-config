@@ -15,16 +15,20 @@ findFreePort (){
    echo $port
 }
 
-cwd=$(dirname $0)
+findJavaHome (){
+   # TODO : fallback on jre when jdk is not available
+   defaultJava=$(readlink -e $(which javac))
+   defaultJava="${defaultJava%/bin/javac}"
+   javaHome="${JAVA_HOME:-$defaultJava}"
+   echo $javaHome
+}
 
 # parameters
 name="${1:-instance}"     # instance name
-instanceRoot="${2:-$cwd}" # where to create instance
+instanceRoot="${2:-$(dirname $0)}" # where to create instance
 
 instance="tomcat-$name"          # instance folder name
 folder="$instanceRoot/$instance" # instance folder path
-
-pushd "$(dirname $0)" > /dev/null
 
 # -- Step 1 : copy instance from template
 
@@ -54,11 +58,7 @@ sed \
    -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
    -i "$folder/conf/server.xml"
 
-# TODO : make it safe gracefuly when java is not available
-# TODO : make it work with a jre as fallback
-defaultJava=$(readlink -e $(which javac))
-defaultJava="${defaultJava%/bin/javac}"
-javaHome="${JAVA_HOME:-$defaultJava}"
+javaHome="$(findJavaHome)"
 
 echo "java home : $javaHome"
 
@@ -79,7 +79,21 @@ update-rc.d "$instance" defaults >/dev/null
 
 echo "service & startup config added : $startupScript"
 
-# TODO add reverse proxy rule
+# TODO : allow to have a non-root context
 
-# 
-popd > /dev/null
+echo -e "
+   <Location /$name/>
+      ProxyPass        http://localhost:$httpPort/
+      ProxyPassReverse http://localhost:$httpPort/
+   </Location>
+   " > $folder/apache-proxy.conf
+
+echo -e "
+make sure that your apache configuration includes link to proxy configuration :
+
+IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
+"
+service $instance start
+
+apachectl graceful
+
