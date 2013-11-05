@@ -2,8 +2,10 @@
 
 [[ 0 -ne $EUID ]] && echo "root access required" && exit 1
 
-# TODO : search into existing instances ports (not only available, since they may not be started
+set -e
+cwd="$(dirname $0)"
 
+# TODO : search into existing instances ports (not only available, since they may not be started
 
 findFreePort (){
    port=${1:-1}
@@ -24,76 +26,160 @@ findJavaHome (){
 }
 
 # parameters
-name="${1:-instance}"     # instance name
-instanceRoot="${2:-$(dirname $0)}" # where to create instance
+# - instance name
+# - delete files (defaults to false)
+delete (){
+   # allow to delete instance if it exists
+   # remove service
+   # follow link to find instance files
+   echo delete
+}
 
-instance="tomcat-$name"          # instance folder name
-folder="$instanceRoot/$instance" # instance folder path
+# parameters
+# - target folder (defaults to /tmp/tomcat)
+# - tomcat version (defaults to 6.0.xx version)
+# - mirror base url (defaults to ircam mirror)
+download (){
+   folder="${1:-/tmp}"
+   targetFolder="$folder/tomcat"
+   version="${2:-6.0.37}"
+   mirror="${3:-http://mirrors.ircam.fr/pub/apache/tomcat}"
+   majorVersion="${version%%.*}"
+   archive="apache-tomcat-${version}.zip"
+   targetArchive="$folder/$archive"
 
-# -- Step 1 : copy instance from template
+   url="$mirror/tomcat-${majorVersion}/v$version/bin/$archive"
 
-[ ! -e "$folder" ] \
-   || echo "target folder already exists : $folder" || return 1
+   mkdir -p $(dirname "$targetArchive")
+   tmpArchive="/tmp/$archive"
+   [ -e "$tmpArchive" ] || wget -q "$url" -O "$tmpArchive"
 
-[ -e _template/tomcat ] \
-   || echo "template not found, please run _template/create first" || return 1
+   # TODO : download and check archive signature
+   # bypass archive download if file exists and signature is ok
 
-rm -rf "$folder"
-cp -r _template/tomcat "$folder"
-chmod ugo+x "$folder"/**/*.sh
+   [ -d "$targetFolder" ] && rm -rf "$targetFolder"
 
-echo "instance path : $folder"
+   rm -rf "${targetArchive%%.zip}"
+   unzip -q "$tmpArchive" -d "$folder"
+   mv "${targetArchive%%.zip}" "$targetFolder"
 
-# -- Step 2 : configure instance --
+   cp -rf "$cwd/../tomcat${majorVersion}/conf" "$targetFolder"
 
-# find open port(s)
-httpPort=$(findFreePort 8080)
-stopPort=$(findFreePort 8005)
+   chmod ugo+x "$targetFolder"/**/*.sh
 
-echo "instance ports : stop=$stopPort http=$httpPort"
+}
 
-# reconfigure instance ports
-sed \
-   -e "s/port=\"8005\"/port=\"$stopPort\"/g" \
-   -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
-   -i "$folder/conf/server.xml"
+# parameters
+# - instance name
+# - folder where to create instance
+create (){
+   name="$1"
+   instanceRoot="$2"
+    
+   instance="tomcat-$name"          # instance folder name
+   folder="$instanceRoot/$instance" # instance folder path
 
-javaHome="$(findJavaHome)"
+   # -- Step 1 : copy instance from template
 
-echo "java home : $javaHome"
+   [ ! -e "$folder" ] \
+      || echo "target folder already exists : $folder" || return 1
 
-# TODO : stop existing instance (if any)
+   # TODO : avoid using template for creation
+   [ -e _template/tomcat ] \
+      || echo "template not found, please run _template/create first" || return 1
 
-# add start script into /etc/init.d/
-startupScript="/etc/init.d/${instance}"
-cat ./service | sed \
-   -e 's+#INSTANCE_PATH#+'$folder'+' \
-   -e 's+#INSTANCE_NAME#+'$instance'+' \
-   -e 's+#JAVA_HOME#+'$javaHome'+' \
-   > $startupScript
-chmod ugo+x $startupScript
+   rm -rf "$folder"
+   download "$folder"
 
-# configure automatic startup
-update-rc.d -f "$instance" remove >/dev/null
-update-rc.d "$instance" defaults >/dev/null
+   echo "instance path : $folder"
 
-echo "service & startup config added : $startupScript"
+   # -- Step 2 : configure instance --
 
-# TODO : allow to have a non-root context
+   # find open port(s)
+   httpPort=$(findFreePort 8080)
+   stopPort=$(findFreePort 8005)
 
-echo -e "
-   <Location /$name/>
-      ProxyPass        http://localhost:$httpPort/
-      ProxyPassReverse http://localhost:$httpPort/
-   </Location>
-   " > $folder/apache-proxy.conf
+   echo "instance ports : stop=$stopPort http=$httpPort"
 
-echo -e "
-make sure that your apache configuration includes link to proxy configuration :
+   # reconfigure instance ports
+   sed \
+      -e "s/port=\"8005\"/port=\"$stopPort\"/g" \
+      -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
+      -i "$folder/tomcat/conf/server.xml"
 
-IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
-"
-service $instance start
+   javaHome="$(findJavaHome)"
 
-apachectl graceful
+   echo "java home : $javaHome"
+
+   service $instance stop 2>/dev/null
+
+   # add start script into /etc/init.d/
+   startupScript="/etc/init.d/${instance}"
+   cat $cwd/service | sed \
+      -e 's+#INSTANCE_PATH#+'$folder'+' \
+      -e 's+#INSTANCE_NAME#+'$instance'+' \
+      -e 's+#JAVA_HOME#+'$javaHome'+' \
+      > $startupScript
+   chmod ugo+x $startupScript
+
+   # configure automatic startup
+   update-rc.d -f "$instance" remove >/dev/null
+   update-rc.d "$instance" defaults >/dev/null
+
+   echo "service & startup config added : $startupScript"
+
+   # TODO : allow to have a non-root context
+
+   echo -e "
+      <Location /$name/>
+         ProxyPass        http://localhost:$httpPort/
+         ProxyPassReverse http://localhost:$httpPort/
+      </Location>
+      " > $folder/apache-proxy.conf
+
+   echo -e "
+      make sure that your apache configuration includes link to proxy configuration :
+      IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
+   "
+   service $instance start
+
+   apachectl graceful
+}
+
+usage (){
+   echo -e "
+    usage:
+
+    $0 usage : display this help
+    $0 template <folder> : create instance template from tomcat archive
+    $0 create <name> <folder> : create instance 'name' in parent folder 'folder'
+    $0 delete <name> : delete existing instance 'name' if it exists (does not delete instance files yet)
+   "
+}
+
+# parameters
+action="${1:-usage}"               # action : create|delete|usage, defaults to usage
+name="${2:-instance}"              # instance name
+instanceRoot="${3:-$(dirname $0)}" # where to create instance, defaults to current script location
+templateRoot="${3:-$(dirname $0)/_template}" 
+
+case "$action" in
+   usage) 
+      usage 
+      ;;
+   create) 
+      create "$name" "$instanceRoot"
+      ;;
+   delete)
+      delete "$name"
+      ;;
+   template)
+      template "$templateRoot"
+      ;;
+   *) 
+      echo "unknown action : $action"
+      usage
+      exit 1 
+      ;;
+esac
 
