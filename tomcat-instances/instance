@@ -137,7 +137,7 @@ create (){
       make sure that your apache configuration includes link to proxy configuration :
       IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
    "
-   service $instance start
+   service $instance start >/dev/null
 
    apachectl graceful
 }
