@@ -31,7 +31,7 @@ findJavaHome (){
 delete (){
    name=${1}
    if [ -e "/etc/init.d/$name" ]; then
-      service stop "$name" 2>/dev/null
+      service stop "$name" &>/dev/null
       update-rc.d "$instance" remove >/dev/null
    fi
 }
@@ -81,8 +81,8 @@ create (){
 
    # -- Step 1 : copy instance from template
 
-   [ ! -e "$folder" ] \
-      || echo "target folder already exists : $folder" || return 1
+   # stop and delete if exists
+   delete "$name"
 
    rm -rf "$folder"
    download "$folder"
@@ -136,6 +136,8 @@ create (){
    echo -e "
       make sure that your apache configuration includes link to proxy configuration :
       IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
+
+      public URL : http://localhost/$name/
    "
    service $instance start >/dev/null
 
