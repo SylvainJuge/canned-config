@@ -29,10 +29,11 @@ findJavaHome (){
 # - instance name
 # - delete files (defaults to false)
 delete (){
-   # allow to delete instance if it exists
-   # remove service
-   # follow link to find instance files
-   echo delete
+   name=${1}
+   if [ -e "/etc/init.d/$name" ]; then
+      service stop "$name" 2>/dev/null
+      update-rc.d "$instance" remove >/dev/null
+   fi
 }
 
 # parameters
@@ -40,8 +41,7 @@ delete (){
 # - tomcat version (defaults to 6.0.xx version)
 # - mirror base url (defaults to ircam mirror)
 download (){
-   folder="${1:-/tmp}"
-   targetFolder="$folder/tomcat"
+   folder="${1:-/tmp/tomcat}"
    version="${2:-6.0.37}"
    mirror="${3:-http://mirrors.ircam.fr/pub/apache/tomcat}"
    majorVersion="${version%%.*}"
@@ -57,15 +57,15 @@ download (){
    # TODO : download and check archive signature
    # bypass archive download if file exists and signature is ok
 
-   [ -d "$targetFolder" ] && rm -rf "$targetFolder"
+   [ -d "$folder" ] && rm -rf "$folder"
 
    rm -rf "${targetArchive%%.zip}"
-   unzip -q "$tmpArchive" -d "$folder"
-   mv "${targetArchive%%.zip}" "$targetFolder"
+   unzip -q "$tmpArchive" -d "${tmpArchive%%.zip}"
+   mv "${tmpArchive%%.zip}"/* "$folder"
 
-   cp -rf "$cwd/../tomcat${majorVersion}/conf" "$targetFolder"
+   cp -rf "$cwd/../tomcat${majorVersion}/conf" "$folder"
 
-   chmod ugo+x "$targetFolder"/**/*.sh
+   chmod ugo+x "$folder"/**/*.sh
 
 }
 
@@ -75,7 +75,7 @@ download (){
 create (){
    name="$1"
    instanceRoot="$2"
-    
+
    instance="tomcat-$name"          # instance folder name
    folder="$instanceRoot/$instance" # instance folder path
 
@@ -83,10 +83,6 @@ create (){
 
    [ ! -e "$folder" ] \
       || echo "target folder already exists : $folder" || return 1
-
-   # TODO : avoid using template for creation
-   [ -e _template/tomcat ] \
-      || echo "template not found, please run _template/create first" || return 1
 
    rm -rf "$folder"
    download "$folder"
@@ -105,13 +101,13 @@ create (){
    sed \
       -e "s/port=\"8005\"/port=\"$stopPort\"/g" \
       -e "s/port=\"8080\"/port=\"$httpPort\"/g" \
-      -i "$folder/tomcat/conf/server.xml"
+      -i "$folder/conf/server.xml"
 
    javaHome="$(findJavaHome)"
 
    echo "java home : $javaHome"
 
-   service $instance stop 2>/dev/null
+   [ -e "/etc/init.d/$instance" ] && service "$instance" stop 2 > /dev/null
 
    # add start script into /etc/init.d/
    startupScript="/etc/init.d/${instance}"
@@ -151,7 +147,6 @@ usage (){
     usage:
 
     $0 usage : display this help
-    $0 template <folder> : create instance template from tomcat archive
     $0 create <name> <folder> : create instance 'name' in parent folder 'folder'
     $0 delete <name> : delete existing instance 'name' if it exists (does not delete instance files yet)
    "
@@ -161,7 +156,6 @@ usage (){
 action="${1:-usage}"               # action : create|delete|usage, defaults to usage
 name="${2:-instance}"              # instance name
 instanceRoot="${3:-$(dirname $0)}" # where to create instance, defaults to current script location
-templateRoot="${3:-$(dirname $0)/_template}" 
 
 case "$action" in
    usage) 
@@ -171,7 +165,7 @@ case "$action" in
       create "$name" "$instanceRoot"
       ;;
    delete)
-      delete "$name"
+      delete "${name?instance name required}"
       ;;
    template)
       template "$templateRoot"
