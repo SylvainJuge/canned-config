@@ -32,6 +32,8 @@ delete (){
    name=${1}
    if [ -e "/etc/init.d/$name" ]; then
       service stop "$name" &>/dev/null
+      # TODO improve this weak way to wait for proper termination
+      sleep 10
       update-rc.d "$instance" remove >/dev/null
    fi
 }
@@ -109,6 +111,9 @@ create (){
 
    startupScript="/etc/init.d/${instance}"
    [ -e "$startupScript" ] && service "$instance" stop 2 > /dev/null
+   # wait for proper terminatio of tomcat
+   # TODO : improve this 
+   sleep 10
    rm -f "$startupScript" 
 
    # add start script into /etc/init.d/
