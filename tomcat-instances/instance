@@ -41,7 +41,7 @@ delete (){
 # - tomcat version (defaults to 6.0.xx version)
 # - mirror base url (defaults to ircam mirror)
 download (){
-   folder="${1:-/tmp/tomcat}"
+   folder="$(readlink -f ${1:-/tmp/tomcat})"
    version="${2:-6.0.37}"
    mirror="${3:-http://mirrors.ircam.fr/pub/apache/tomcat}"
    majorVersion="${version%%.*}"
@@ -74,7 +74,7 @@ download (){
 # - folder where to create instance
 create (){
    name="$1"
-   instanceRoot="$2"
+   instanceRoot="$(readlink -f "$2")"
 
    instance="tomcat-$name"          # instance folder name
    folder="$instanceRoot/$instance" # instance folder path
@@ -107,10 +107,11 @@ create (){
 
    echo "java home : $javaHome"
 
-   [ -e "/etc/init.d/$instance" ] && service "$instance" stop 2 > /dev/null
+   startupScript="/etc/init.d/${instance}"
+   [ -e "$startupScript" ] && service "$instance" stop 2 > /dev/null
+   rm -f "$startupScript" 
 
    # add start script into /etc/init.d/
-   startupScript="/etc/init.d/${instance}"
    cat $cwd/service | sed \
       -e 's+#INSTANCE_PATH#+'$folder'+' \
       -e 's+#INSTANCE_NAME#+'$instance'+' \
@@ -135,7 +136,12 @@ create (){
 
    echo -e "
       make sure that your apache configuration includes link to proxy configuration :
-      IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
+
+         IncludeOptional $folder/apache-proxy.conf
+
+      or use wildcard for multiple instances
+
+         IncludeOptional $instanceRoot/tomcat-*/apache-proxy.conf
 
       public URL : http://localhost/$name/
    "
